@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 
 app = FastAPI()
 
-# Enable CORS (Allows API to be accessed from different domains)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins (modify for security)
@@ -24,10 +24,14 @@ def is_prime(n: int) -> bool:
 
 # Function to check if a number is perfect
 def is_perfect(n: int) -> bool:
+    if n < 1:
+        return False
     return n == sum(i for i in range(1, n) if n % i == 0)
 
 # Function to check if a number is an Armstrong number
 def is_armstrong(n: int) -> bool:
+    if n < 0:
+        return False  # Negative numbers can't be Armstrong numbers
     digits = [int(d) for d in str(n)]
     power = len(digits)
     return sum(d ** power for d in digits) == n
@@ -43,7 +47,20 @@ def get_fun_fact(n: int) -> str:
     return "No fact available."
 
 @app.get("/api/classify-number")
-def classify_number(number: int = Query(..., description="Input number to classify")):
+def classify_number(number: str = Query(..., description="Input number to classify")):
+    # Validate input
+    try:
+        number = int(number)  # Convert to integer
+    except ValueError:
+        raise HTTPException(status_code=400, detail={"number": number, "error": True})
+
+    if number < 0:
+        return {
+            "number": number,
+            "error": True,
+            "message": "Negative numbers are not supported.",
+        }
+
     properties = []
     if is_armstrong(number):
         properties.append("armstrong")
@@ -54,6 +71,6 @@ def classify_number(number: int = Query(..., description="Input number to classi
         "is_prime": is_prime(number),
         "is_perfect": is_perfect(number),
         "properties": properties,
-        "digit_sum": sum(map(int, str(number))),
-        "fun_fact": get_fun_fact(number)
+        "digit_sum": sum(map(int, str(abs(number)))),  # Handle negative numbers properly
+        "fun_fact": get_fun_fact(number),
     }
